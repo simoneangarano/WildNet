@@ -4,7 +4,7 @@ python train.py \
     --dataset agriseg \
     --val_dataset agriseg \
     --wild_dataset imagenet \
-    --arch network.lraspp.LRASPP \
+    --arch network.lraspp.lraspp_mobilenet_v3_large \
     --city_mode 'train' \
     --sgd \
     --lr_schedule poly \

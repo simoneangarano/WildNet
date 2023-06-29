@@ -42,5 +42,5 @@ def get_model(args, num_classes, criterion, criterion_aux=None, cont_proj_head=0
     model = network[network.rfind('.') + 1:]
     mod = importlib.import_module(module)
     net_func = getattr(mod, model)
-    net = net_func(args=args, num_classes=num_classes, criterion=criterion, criterion_aux=criterion_aux, cont_proj_head=cont_proj_head, wild_cont_dict_size=wild_cont_dict_size)
+    net = net_func(args=args, num_classes=1, criterion=criterion, criterion_aux=criterion_aux, cont_proj_head=cont_proj_head, wild_cont_dict_size=wild_cont_dict_size)
     return net

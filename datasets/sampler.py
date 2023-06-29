@@ -59,13 +59,10 @@ class DistributedSampler(Sampler):
     """
 
     def __init__(self, dataset, pad=False, consecutive_sample=False, permutation=False, num_replicas=None, rank=None):
-        if num_replicas is None:
-            num_replicas = get_world_size()
-        if rank is None:
-            rank = get_rank()
+
         self.dataset = dataset
-        self.num_replicas = num_replicas
-        self.rank = rank
+        self.num_replicas = 1
+        self.rank = 0
         self.epoch = 0
         self.consecutive_sample = consecutive_sample
         self.permutation = permutation

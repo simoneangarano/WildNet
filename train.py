@@ -26,8 +26,9 @@ parser = argparse.ArgumentParser(description='Semantic Segmentation')
 parser.add_argument('--lr', type=float, default=0.01)
 parser.add_argument('--arch', type=str, default='network.deepv3.DeepR50V3PlusD',
                     help='Network architecture.')
-parser.add_argument('--dataset', nargs='*', type=str, default=['gtav'],
-                    help='a list of datasets; cityscapes, mapillary, gtav, bdd100k, synthia')
+parser.add_argument('--source', nargs='*', type=str, default=['vineyard', 'tree_2', 'chard', 'lettuce'])
+parser.add_argument('--target', nargs='*', type=str, default=0)
+parser.add_argument('--dataset', nargs='*', type=str, default=['gtav'])
 parser.add_argument('--image_uniform_sampling', action='store_true', default=False,
                     help='uniformly sample images across the multiple source domains')
 parser.add_argument('--val_dataset', nargs='*', type=str, default=['bdd100k'],
@@ -205,6 +206,11 @@ if args.lambda_sel > 0:
     args.use_sel = True
 if args.lambda_scr > 0:
     args.use_scr = True
+
+#torch.distributed.init_process_group(backend='nccl',
+#                                    init_method='env://',
+#                                    world_size=args.world_size,
+#                                    rank=args.local_rank)
 
 def main():
     """

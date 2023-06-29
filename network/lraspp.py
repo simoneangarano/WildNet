@@ -2,6 +2,7 @@ from collections import OrderedDict
 from functools import partial
 from typing import Any, Dict, Optional
 
+import torch
 from torch import nn, Tensor
 from torch.nn import functional as F
 
@@ -286,7 +287,7 @@ def lraspp_mobilenet_v3_large(
         num_classes = 1
 
     backbone = mobilenet_v3_large(pretrained=pretrained, dilated=True, fs_layer=args.fs_layer)
-    model = _lraspp_mobilenetv3(args, backbone, num_classes, criterion=criterion, criterion_aux=criterion_aux, 
+    model = _lraspp_mobilenetv3(args, backbone, num_classes=1000, criterion=criterion, criterion_aux=criterion_aux, 
                                 cont_proj_head=cont_proj_head, wild_cont_dict_size=wild_cont_dict_size,
                                 variant='D16', skip='m1')
 

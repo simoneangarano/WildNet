@@ -8,6 +8,7 @@ from datasets import bdd100k
 from datasets import gtav
 from datasets import nullloader
 from datasets import imagenet
+from datasets import agriseg
 
 from datasets import multi_loader
 from datasets.sampler import DistributedSampler
@@ -183,6 +184,10 @@ def create_extra_val_loader(args, dataset, val_input_transform, target_transform
                                         target_transform=target_transform,
                                         cv_split=args.cv,
                                         image_in=args.image_in)
+        
+    if dataset == 'agriseg':
+        val_set = agriseg.AgriSeg_DataLoader(args)
+        
     elif dataset == 'bdd100k':
         val_set = bdd100k.BDD100K('val', 0,
                                   transform=val_input_transform,
@@ -484,6 +489,16 @@ def setup_loaders(args):
         train_sets.append(train_set)
         val_sets.append(val_set)
         val_dataset_names.append('null_loader')
+
+    if 'agriseg' in args.dataset:
+        train_set = agriseg.AgriSeg_DataLoader(args, augment=True)
+        val_set = agriseg.AgriSeg_DataLoader(args, augment=False)
+
+        train_sets.append(train_set)
+        val_sets.append(val_set)
+        val_dataset_names.append(args.target)
+
+        target_transform, target_train_transform, target_aux_train_transform = None, None, None
     
     if 'imagenet' in args.wild_dataset:
         dataset = imagenet
@@ -517,7 +532,7 @@ def setup_loaders(args):
 
     for i, val_set in enumerate(val_sets):
         if args.syncbn:
-            val_sampler = DistributedSampler(val_set, pad=False, permutation=False, consecutive_sample=False)
+            val_sampler = DistributedSampler(val_set, pad=False, permutation=False, consecutive_sample=False, num_replicas=1)
         else:
             val_sampler = None
         val_loader = DataLoader(val_set, batch_size=args.val_batch_size,
