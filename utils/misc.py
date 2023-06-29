@@ -11,7 +11,7 @@ from datetime import datetime
 import logging
 from subprocess import call
 import shlex
-from tensorboardX import SummaryWriter
+#from tensorboardX import SummaryWriter
 import datasets
 import numpy as np
 import torchvision.transforms as standard_transforms
@@ -112,8 +112,7 @@ def prep_experiment(args, parser):
         save_log('log', args.exp_path, args.date_str, rank=args.local_rank)
         open(os.path.join(args.exp_path, args.date_str + '.txt'), 'w').write(
             str(args) + '\n\n')
-        writer = SummaryWriter(log_dir=args.tb_exp_path, comment=args.tb_tag)
-        return writer
+
     return None
 
 def evaluate_eval_for_inference(hist, dataset=None):
@@ -136,7 +135,7 @@ def evaluate_eval_for_inference(hist, dataset=None):
 
 
 
-def evaluate_eval(args, net, optimizer, scheduler, val_loss, hist, dump_images, writer, epoch=0, dataset_name=None, dataset=None, curr_iter=0, optimizer_at=None, scheduler_at=None, save_pth=True):
+def evaluate_eval(args, net, optimizer, scheduler, val_loss, hist, dump_images, epoch=0, dataset_name=None, dataset=None, curr_iter=0, optimizer_at=None, scheduler_at=None, save_pth=True):
     """
     Modified IOU mechanism for on-the-fly IOU calculations ( prevents memory overflow for
     large dataset) Only applies to eval/eval.py
@@ -247,14 +246,6 @@ def evaluate_eval(args, net, optimizer, scheduler, val_loss, hist, dump_images, 
                                     args.best_record[dataset_name]['acc_cls'], args.best_record[dataset_name]['mean_iu'],
                                     args.best_record[dataset_name]['fwavacc'], args.best_record[dataset_name]['epoch']))
             logging.info('-' * 107)
-
-        if writer:
-            # tensorboard logging of validation phase metrics
-            writer.add_scalar('{}/acc'.format(dataset_name), acc, curr_iter)
-            writer.add_scalar('{}/acc_cls'.format(dataset_name), acc_cls, curr_iter)
-            writer.add_scalar('{}/mean_iu'.format(dataset_name), mean_iu, curr_iter)
-            writer.add_scalar('{}/val_loss'.format(dataset_name), val_loss.avg, curr_iter)
-
 
 
 

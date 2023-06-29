@@ -63,6 +63,7 @@ parser.add_argument('--repoly', type=float, default=1.5,
 
 parser.add_argument('--fp16', action='store_true', default=False,
                     help='Use Nvidia Apex AMP')
+parser.add_argument('--ngpu', default=1)
 parser.add_argument('--local_rank', default=0, type=int,
                     help='parameter used by apex library')
 
@@ -165,8 +166,11 @@ parser.add_argument('--use_sel', action='store_true', default=False,
 parser.add_argument('--use_cel', action='store_true', default=False,
                     help='Automatic setting from lambda_cel')
 
-args = parser.parse_args()
-
+try:
+    args = parser.parse_args()
+except:
+    args = parser.parse_args('')
+    
 random_seed = cfg.RANDOM_SEED  #304
 torch.manual_seed(random_seed)
 torch.cuda.manual_seed(random_seed)
@@ -190,16 +194,6 @@ if 'WORLD_SIZE' in os.environ:
 torch.cuda.set_device(args.local_rank)
 print('My Rank:', args.local_rank)
 # Initialize distributed communication
-args.dist_url = args.dist_url + str(8000 + (int(time.time()%1000))//10)
-
-torch.distributed.init_process_group(backend='nccl',
-                                    init_method='env://',
-                                    world_size=args.world_size,
-                                    rank=args.local_rank)
-# torch.distributed.init_process_group(backend='nccl',
-#                                     init_method=args.dist_url,
-#                                     world_size=args.world_size,
-#                                     rank=args.local_rank)
 
 for i in range(len(args.fs_layer)):
     if args.fs_layer[i] == 1:
@@ -218,7 +212,6 @@ def main():
     """
     # Set up the Arguments, Tensorboard Writer, Dataloader, Loss Fn, Optimizer
     assert_and_infer_cfg(args)
-    writer = prep_experiment(args, parser)
 
     train_source_loader, val_loaders, train_wild_loader, train_obj, extra_val_loaders = datasets.setup_loaders(args)
 
@@ -229,7 +222,6 @@ def main():
     optim, scheduler = optimizer.get_optimizer(args, net)
 
     net = torch.nn.SyncBatchNorm.convert_sync_batchnorm(net)
-    net = network.warp_network_in_dataparallel(net, args.local_rank)
     epoch = 0
     i = 0
 
@@ -252,14 +244,13 @@ def main():
         cfg.ITER = i
         cfg.immutable(True)
 
-        i = train(train_source_loader, train_wild_loader, net, optim, epoch, writer, scheduler, args.max_iter)
+        i = train(train_source_loader, train_wild_loader, net, optim, epoch, scheduler, args.max_iter)
         train_source_loader.sampler.set_epoch(epoch + 1)
         train_wild_loader.sampler.set_epoch(epoch + 1)
 
         if args.local_rank == 0:
             print("Saving pth file...")
-            evaluate_eval(args, net, optim, scheduler, None, None, [],
-                        writer, epoch, "None", None, i, save_pth=True)
+            evaluate_eval(args, net, optim, scheduler, None, None, [], epoch, "None", None, i, save_pth=True)
 
         if args.class_uniform_pct:
             if epoch >= args.max_cu_epoch:
@@ -274,19 +265,18 @@ def main():
     if len(val_loaders) == 1:
         # Run validation only one time - To save models
         for dataset, val_loader in val_loaders.items():
-            validate(val_loader, dataset, net, criterion_val, optim, scheduler, epoch, writer, i)
+            validate(val_loader, dataset, net, criterion_val, optim, scheduler, epoch, i)
     else:
         if args.local_rank == 0:
             print("Saving pth file...")
-            evaluate_eval(args, net, optim, scheduler, None, None, [],
-                        writer, epoch, "None", None, i, save_pth=True)
+            evaluate_eval(args, net, optim, scheduler, None, None, [], epoch, "None", None, i, save_pth=True)
 
     for dataset, val_loader in extra_val_loaders.items():
         print("Extra validating... This won't save pth file")
-        validate(val_loader, dataset, net, criterion_val, optim, scheduler, epoch, writer, i, save_pth=False)
+        validate(val_loader, dataset, net, criterion_val, optim, scheduler, epoch, i, save_pth=False)
 
 
-def train(source_loader, wild_loader, net, optim, curr_epoch, writer, scheduler, max_iter):
+def train(source_loader, wild_loader, net, optim, curr_epoch, scheduler, max_iter):
     """
     Runs the training loop per epoch
     source_loader: Source data loader for train
@@ -404,7 +394,6 @@ def train(source_loader, wild_loader, net, optim, curr_epoch, writer, scheduler,
                     logging.info(msg)
                     
                     # Log tensorboard metrics for each iteration of the training phase
-                    writer.add_scalar('loss/train_loss', (train_total_loss.avg), curr_iter)
                     train_total_loss.reset()
                     time_meter.reset()
 
@@ -416,7 +405,7 @@ def train(source_loader, wild_loader, net, optim, curr_epoch, writer, scheduler,
 
     return curr_iter
 
-def validate(val_loader, dataset, net, criterion, optim, scheduler, curr_epoch, writer, curr_iter, save_pth=True):
+def validate(val_loader, dataset, net, criterion, optim, scheduler, curr_epoch, curr_iter, save_pth=True):
     """
     Runs the validation loop after each training epoch
     val_loader: Data loader for validation
@@ -488,7 +477,7 @@ def validate(val_loader, dataset, net, criterion, optim, scheduler, curr_epoch, 
 
     if args.local_rank == 0:
         evaluate_eval(args, net, optim, scheduler, val_loss, iou_acc, dump_images,
-                    writer, curr_epoch, dataset, None, curr_iter, save_pth=save_pth)
+                      curr_epoch, dataset, None, curr_iter, save_pth=save_pth)
 
     return val_loss.avg
 

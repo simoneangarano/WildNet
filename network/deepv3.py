@@ -107,8 +107,8 @@ class DeepV3Plus(nn.Module):
     with skip connections
     """
 
-    def __init__(self, num_classes, trunk='resnet-50', criterion=None, criterion_aux=None, cont_proj_head=0, wild_cont_dict_size=0,
-                variant='D16', skip='m1', skip_num=48, args=None):
+    def __init__(self, num_classes, trunk='resnet-50', criterion=None, criterion_aux=None, cont_proj_head=0,
+                 wild_cont_dict_size=0, variant='D16', skip='m1', skip_num=48, args=None):
         super(DeepV3Plus, self).__init__()
 
         self.args = args
@@ -146,7 +146,7 @@ class DeepV3Plus(nn.Module):
         final_channel = 2048
 
         if trunk == 'resnet-50':
-            resnet = Resnet.resnet50(fs_layer=self.args.fs_layer)
+                resnet = Resnet.resnet50(fs_layer=self.args.fs_layer)
             resnet.layer0 = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu, resnet.maxpool)
         else:
             raise ValueError("Not a valid network arch")
@@ -233,10 +233,12 @@ class DeepV3Plus(nn.Module):
             with torch.no_grad():
                 x_w = self.layer0[0](x_w)
         x = self.layer0[1](x)
+        
         if self.training & apply_fs:
             x_sw = self.layer0[1](x, x_w) # feature stylization
             with torch.no_grad(): 
                 x_w = self.layer0[1](x_w)
+                
         x = self.layer0[2](x)
         x = self.layer0[3](x)
         if self.training & apply_fs:
@@ -336,12 +338,17 @@ class DeepV3Plus(nn.Module):
                 
                 if self.args.use_scr:
                     # compute semantic consistency regularization loss
-                    loss_scr = torch.clamp((self.criterion_kl(nn.functional.log_softmax(main_out_sw, dim=1), nn.functional.softmax(main_out, dim=1)))/(torch.prod(torch.tensor(main_out.shape[1:]))), min=0)
-                    loss_scr_aux = torch.clamp((self.criterion_kl(nn.functional.log_softmax(aux_out_sw, dim=1), nn.functional.softmax(aux_out, dim=1)))/(torch.prod(torch.tensor(aux_out.shape[1:]))), min=0)
+                    loss_scr = torch.clamp((self.criterion_kl(nn.functional.log_softmax(main_out_sw, dim=1), 
+                                                              nn.functional.softmax(main_out, dim=1)))/(
+                                   torch.prod(torch.tensor(main_out.shape[1:]))), min=0)
+                    loss_scr_aux = torch.clamp((self.criterion_kl(nn.functional.log_softmax(aux_out_sw, dim=1),
+                                                                  nn.functional.softmax(aux_out, dim=1)))/(
+                                       torch.prod(torch.tensor(aux_out.shape[1:]))), min=0)
                     return_loss.append(loss_scr)
                     return_loss.append(loss_scr_aux)
 
             return return_loss
+        
         else:
             return main_out
 

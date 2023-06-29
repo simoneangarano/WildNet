@@ -78,13 +78,15 @@ __C.DATASET.BDD_DIR = '/mnt/hdd2/DGSS/bdd100k/seg'
 #Synthia Dataset Dir Location
 __C.DATASET.SYNTHIA_DIR = '/mnt/hdd2/DGSS/synthia'
 #ImageNet Dataset Dir Location
-__C.DATASET.IMAGENET_DIR ='/mnt/hdd2/ImageNet/data'
+__C.DATASET.IMAGENET_DIR ='/media/Datasets/ImageNet/ILSVRC/Data/CLS-LOC'
 #Kitti Dataset Dir Location
 __C.DATASET.KITTI_DIR = ''
 #SDC Augmented Kitti Dataset Dir Location
 __C.DATASET.KITTI_AUG_DIR = ''
 #Camvid Dataset Dir Location
 __C.DATASET.CAMVID_DIR = ''
+#AgriSeg Dataset Dir Location
+__C.DATASET.AGRISEG_DIR = '../datasets/'
 #Number of splits to support
 __C.DATASET.CV_SPLITS = 3
 

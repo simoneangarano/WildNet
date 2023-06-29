@@ -4,10 +4,10 @@ import torch.nn as nn
 
 class AdaptiveInstanceNormalization(nn.Module):
 
-    def __init__(self):
+    def __init__(self, out_channels=None):
         super(AdaptiveInstanceNormalization, self).__init__()
 
-    def forward(self, x_cont, x_style=None):
+    def forward(self, x_cont, x_style=None, ):
         if x_style is not None:
             assert (x_cont.size()[:2] == x_style.size()[:2])
             size = x_cont.size()
