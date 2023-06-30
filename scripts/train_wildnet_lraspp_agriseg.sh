@@ -3,7 +3,7 @@
 python train.py \
     --dataset agriseg \
     --val_dataset agriseg \
-    --wild_dataset imagenet \
+    --wild_dataset agriseg \
     --arch network.lraspp.lraspp_mobilenet_v3_large \
     --city_mode 'train' \
     --sgd \

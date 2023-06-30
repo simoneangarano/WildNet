@@ -94,14 +94,18 @@ class AgriSeg(torch.utils.data.Dataset):
         mask = self.preprocess_mask(mask)
 
         if self.transform is not None:
-            img = self.transform(img)
-        
+            #img = self.transform(img)
+            pass
+
         if self.target_aux_transform is not None:
-            mask_aux = self.target_aux_transform(mask)
+            #mask_aux = self.target_aux_transform(mask)
+            pass
         else:
             mask_aux = torch.tensor([0])
+            
         if self.target_transform is not None:
-            mask = self.target_transform(mask)
+            #mask = self.target_transform(mask)
+            pass
 
         return image, mask, str(self.images[idx]), mask_aux
     

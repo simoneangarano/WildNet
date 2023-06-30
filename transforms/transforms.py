@@ -158,7 +158,7 @@ class RandomGaussianBlur(object):
     """
     def __call__(self, img):
         sigma = 0.15 + random.random() * 1.15
-        blurred_img = gaussian(np.array(img), sigma=sigma, multichannel=True)
+        blurred_img = gaussian(np.array(img), sigma=sigma, channel_axis=-1)
         blurred_img *= 255
         return Image.fromarray(blurred_img.astype(np.uint8))
 

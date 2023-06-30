@@ -251,7 +251,7 @@ def setup_loaders(args):
         args.train_batch_size = args.bs_mult
         args.val_batch_size = args.bs_mult_val
 
-    args.num_workers = 8 # 8 * args.ngpu
+    args.num_workers = 24 # 8 * args.ngpu
     if args.test_mode:
         args.num_workers = 1
 
@@ -491,9 +491,10 @@ def setup_loaders(args):
         val_dataset_names.append('null_loader')
 
     if 'agriseg' in args.dataset:
+        dataset = agriseg
         train_set = agriseg.AgriSeg(args, augment=True)
         val_set = agriseg.AgriSeg(args, augment=False)
-
+        train_input_transform, val_input_transform = get_input_transforms(args, dataset)
         train_sets.append(train_set)
         val_sets.append(val_set)
         val_dataset_names.append(args.target)
@@ -514,6 +515,14 @@ def setup_loaders(args):
             image_in=args.image_in)
         wild_sets.append(wild_set)
         wild_dataset_names.append('imagenet')
+
+    if 'agriseg' in args.wild_dataset:
+        dataset = agriseg
+        train_joint_transform_list, train_joint_transform = get_train_joint_transform_wild(args, dataset)
+        train_input_transform, val_input_transform = get_input_transforms(args, dataset)
+        wild_set = dataset.AgriSeg(args, augment=True)
+        wild_sets.append(wild_set)
+        wild_dataset_names.append('agriseg')
 
     if len(train_sets) == 0:
         raise Exception('Dataset {} is not supported'.format(args.dataset))
@@ -536,8 +545,8 @@ def setup_loaders(args):
         else:
             val_sampler = None
         val_loader = DataLoader(val_set, batch_size=args.val_batch_size,
-                                num_workers=args.num_workers // 2 , pin_memory=True, shuffle=False, drop_last=False,
-                                sampler = val_sampler)
+                                num_workers=args.num_workers , pin_memory=True, shuffle=False, drop_last=False,
+                                sampler = None)
         val_loaders[val_dataset_names[i]] = val_loader
 
     if args.syncbn:
@@ -546,12 +555,13 @@ def setup_loaders(args):
         train_sampler = None
 
     train_loader = DataLoader(train_set, batch_size=args.train_batch_size,
-                              num_workers=args.num_workers, pin_memory=True, shuffle=(train_sampler is None), drop_last=True, sampler = train_sampler)
+                              num_workers=args.num_workers, pin_memory=True, shuffle=(train_sampler is None), drop_last=True, sampler = None)
 
     extra_val_loader = {}
     for val_dataset in args.val_dataset:
         extra_val_loader[val_dataset] = create_extra_val_loader(args, val_dataset, val_input_transform, target_transform, val_sampler)
 
+    wild_loader = None
     for i, wild_set in enumerate(wild_sets):
         if args.syncbn:
             wild_sampler = DistributedSampler(wild_set, pad=True, permutation=True, consecutive_sample=False)

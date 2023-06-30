@@ -130,7 +130,7 @@ parser.add_argument('--syncbn', action='store_true', default=True,
                     help='Use Synchronized BN')
 parser.add_argument('--dump_augmentation_images', action='store_true', default=False,
                     help='Dump Augmentated Images for sanity check')
-parser.add_argument('--test_mode', action='store_true', default=False,
+parser.add_argument('--test_mode', action='store_true', default=True,
                     help='Minimum testing to verify nothing failed, ' +
                     'Runs code for 1 epoch of train and val')
 parser.add_argument('-wb', '--wt_bound', type=float, default=1.0,
@@ -300,7 +300,7 @@ def train(source_loader, wild_loader, net, optim, curr_epoch, scheduler, max_ite
 
     curr_iter = curr_epoch * len(source_loader)
 
-    wild_loader_iter = enumerate(wild_loader)
+    wild_loader_iter = enumerate(wild_loader) if wild_loader else None
 
     for i, data in enumerate(source_loader):
         if curr_iter >= max_iter:
@@ -331,8 +331,10 @@ def train(source_loader, wild_loader, net, optim, curr_epoch, scheduler, max_ite
         for di, ingredients in enumerate(zip(inputs, gts, aux_gts)):
             input, gt, aux_gt = ingredients
 
+            print('Getting wild sample...')
             _, inputs_wild = next(wild_loader_iter)
             input_wild = inputs_wild[0]
+            print('Done')
 
             start_ts = time.time()
 
