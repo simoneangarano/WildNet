@@ -20,11 +20,15 @@ def AgriSeg_DataLoader(args, augment=False):
 class AgriSeg(torch.utils.data.Dataset):
     """Image (semantic) segmentation dataset."""
 
-    def __init__(self, config, root_dir=root, augment=False):
+    def __init__(self, args, root_dir=root, augment=False, transform=None, target_transform=None, target_aux_transform=None, test=False):
         self.root_dir = Path(root_dir)  
-        self.config = config
+        self.args = args
         self.augment = augment
         self.images, self.masks = [], []
+
+        self.target_transform = target_transform
+        self.transform = transform
+        self.target_aux_transform = target_aux_transform
         
         self.get_file_lists()
         self.get_transforms()
@@ -43,7 +47,7 @@ class AgriSeg(torch.utils.data.Dataset):
     def get_transforms(self):
         if self.augment:
             self.image_transforms = T.Compose([
-                T.RandomResizedCrop(self.args.base_size, 
+                T.RandomResizedCrop(self.args.crop_size, 
                                     scale=(0.5, 1.0),
                                     interpolation=T.InterpolationMode.BILINEAR),
                 T.RandomHorizontalFlip(0.5),
@@ -56,7 +60,7 @@ class AgriSeg(torch.utils.data.Dataset):
             ])
             
             self.mask_transforms = T.Compose([
-                T.RandomResizedCrop(self.args.base_size, 
+                T.RandomResizedCrop(self.args.crop_size, 
                                     scale=(0.5, 1.0),
                                     interpolation=T.InterpolationMode.NEAREST),
                 T.RandomHorizontalFlip(0.5),
@@ -88,7 +92,18 @@ class AgriSeg(torch.utils.data.Dataset):
 
         image = self.preprocess_image(image)
         mask = self.preprocess_mask(mask)
-        return image, mask
+
+        if self.transform is not None:
+            img = self.transform(img)
+        
+        if self.target_aux_transform is not None:
+            mask_aux = self.target_aux_transform(mask)
+        else:
+            mask_aux = torch.tensor([0])
+        if self.target_transform is not None:
+            mask = self.target_transform(mask)
+
+        return image, mask, str(self.images[idx]), mask_aux
     
     def preprocess_image(self, image):
         random.seed(self.seed) 

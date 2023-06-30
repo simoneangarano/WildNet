@@ -101,7 +101,7 @@ parser.add_argument('--bs_mult', type=int, default=2,
                     help='Batch size for training per gpu')
 parser.add_argument('--bs_mult_val', type=int, default=1,
                     help='Batch size for Validation per gpu')
-parser.add_argument('--crop_size', type=int, default=720,
+parser.add_argument('--crop_size', type=int, default=224,
                     help='training crop size')
 parser.add_argument('--pre_size', type=int, default=None,
                     help='resize image shorter edge to this before augmentation')

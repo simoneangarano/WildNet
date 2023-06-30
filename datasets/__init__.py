@@ -491,8 +491,8 @@ def setup_loaders(args):
         val_dataset_names.append('null_loader')
 
     if 'agriseg' in args.dataset:
-        train_set = agriseg.AgriSeg_DataLoader(args, augment=True)
-        val_set = agriseg.AgriSeg_DataLoader(args, augment=False)
+        train_set = agriseg.AgriSeg(args, augment=True)
+        val_set = agriseg.AgriSeg(args, augment=False)
 
         train_sets.append(train_set)
         val_sets.append(val_set)
