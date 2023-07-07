@@ -111,6 +111,7 @@ parser.add_argument('--scale_max', type=float, default=2.0,
                     help='dynamically scale training images up to this size')
 parser.add_argument('--weight_decay', type=float, default=5e-4)
 parser.add_argument('--momentum', type=float, default=0.9)
+parser.add_argument('--num_workers', type=int, default=4)
 parser.add_argument('--snapshot', type=str, default=None)
 parser.add_argument('--restore_optimizer', action='store_true', default=False)
 
@@ -126,7 +127,7 @@ parser.add_argument('--ckpt', type=str, default='logs/ckpt',
                     help='Save Checkpoint Point')
 parser.add_argument('--tb_path', type=str, default='logs/tb',
                     help='Save Tensorboard Path')
-parser.add_argument('--syncbn', action='store_true', default=True,
+parser.add_argument('--syncbn', action='store_true', default=False,
                     help='Use Synchronized BN')
 parser.add_argument('--dump_augmentation_images', action='store_true', default=False,
                     help='Dump Augmentated Images for sanity check')
@@ -227,7 +228,7 @@ def main():
 
     optim, scheduler = optimizer.get_optimizer(args, net)
 
-    net = torch.nn.SyncBatchNorm.convert_sync_batchnorm(net)
+    #net = torch.nn.SyncBatchNorm.convert_sync_batchnorm(net)
     epoch = 0
     i = 0
 

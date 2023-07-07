@@ -87,14 +87,14 @@ class LRASPP(nn.Module):
         self.whitening = False
 
         
-    def forward(self, input: Tensor, gts=None, aux_gts=None, x_w=None, apply_fs=False) -> Dict[str, Tensor]:
+    def forward(self, x: Tensor, gts=None, aux_gts=None, x_w=None, apply_fs=False) -> Dict[str, Tensor]:
         
-        x_size = input.size()
+        x_size = x.size()
         
-        # features = self.backbone(input)
+        # features = self.backbone(x)
         
         # encoder
-        x = self.layer0[0](input)
+        x = self.layer0[0](x)
         if self.training & apply_fs:
             with torch.no_grad():
                 x_w = self.layer0[0](x_w)
@@ -128,15 +128,15 @@ class LRASPP(nn.Module):
             aux_out_sw = x_tuple[2]
         
         for i in range(4,17):
-            x_tuple = self.backbone.features[i](x_tuple)
+            x_tuple = self.backbone.features[i](x_tuple[0])
         
         x = x_tuple[0]
         if self.training & apply_fs:
             x_w = x_tuple[1]
             x_sw = x_tuple[2]
             
-        out, out_proj = self.classifier(self.backb(input))
-        main_out = F.interpolate(out, size=input.shape[-2:], mode="bilinear", align_corners=False)
+        out, out_proj = self.classifier(self.backb(x))
+        main_out = F.interpolate(out, size=x.shape[-2:], mode="bilinear", align_corners=False)
         
         if self.training:
             # compute original semantic segmentation loss
@@ -152,12 +152,12 @@ class LRASPP(nn.Module):
             return_loss = [loss_orig, loss_orig_aux]
 
             if apply_fs:
-                out_sw, out_proj_sw = self.classifier(self.backb(input))
-                main_out_sw = F.interpolate(out_sw, size=input.shape[-2:], mode="bilinear", align_corners=False)
+                out_sw, out_proj_sw = self.classifier(self.backb(x))
+                main_out_sw = F.interpolate(out_sw, size=x.shape[-2:], mode="bilinear", align_corners=False)
                 
                 with torch.no_grad():
-                    out_w, out_proj_w = self.classifier(self.backb(input))
-                    main_out_w = F.interpolate(out_w, size=input.shape[-2:], mode="bilinear", align_corners=False)
+                    out_w, out_proj_w = self.classifier(self.backb(x))
+                    main_out_w = F.interpolate(out_w, size=x.shape[-2:], mode="bilinear", align_corners=False)
                 
                 if self.args.use_cel:
                     # projected features
@@ -194,7 +194,7 @@ class LRASPP(nn.Module):
             return return_loss
         
         else:
-            return main_out, self.backb(input)
+            return main_out, self.backb(x)
 
 class LRASPPHead(nn.Module):
     def __init__(self, low_channels: int, high_channels: int, num_classes: int, inter_channels: int) -> None:

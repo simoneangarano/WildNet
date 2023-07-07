@@ -44,11 +44,6 @@ from scipy.ndimage.interpolation import shift
 from skimage.segmentation import find_boundaries
 from skimage.util import random_noise
 
-try:
-    import accimage
-except ImportError:
-    accimage = None
-
 
 class RandomVerticalFlip(object):
     def __call__(self, img):
@@ -182,10 +177,7 @@ class RandomBilateralBlur(object):
         return Image.fromarray(blurred_img.astype(np.uint8))
 
 def _is_pil_image(img):
-    if accimage is not None:
-        return isinstance(img, (Image.Image, accimage.Image))
-    else:
-        return isinstance(img, Image.Image)
+    return isinstance(img, Image.Image)
 
 
 def adjust_brightness(img, brightness_factor):

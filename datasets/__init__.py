@@ -229,7 +229,7 @@ def create_extra_val_loader(args, dataset, val_input_transform, target_transform
         val_sampler = None
 
     val_loader = DataLoader(val_set, batch_size=args.val_batch_size,
-                            num_workers=args.num_workers // 2 , pin_memory=True, shuffle=False, drop_last=False,
+                            num_workers=args.num_workers , pin_memory=True, shuffle=False, drop_last=False,
                             sampler = val_sampler)
     return val_loader
 
@@ -245,15 +245,6 @@ def setup_loaders(args):
         args.val_batch_size = args.bs_mult_val * args.ngpu
     else:
         args.val_batch_size = args.bs_mult * args.ngpu
-
-    # Readjust batch size to mini-batch size for syncbn
-    if args.syncbn:
-        args.train_batch_size = args.bs_mult
-        args.val_batch_size = args.bs_mult_val
-
-    args.num_workers = 24 # 8 * args.ngpu
-    if args.test_mode:
-        args.num_workers = 1
 
     train_sets = []
     val_sets = []

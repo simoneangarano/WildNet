@@ -134,7 +134,7 @@ class InvertedResidual(nn.Module):
             x_w = input[1]
             x_sw = input[2]
         else:
-            raise NotImplementedError("%d is not supported length of the tuple"%(len(x_tuple)))
+            raise NotImplementedError("%d is not supported length of the tuple"%(len(input)))
             
         residual = x 
         result = self.block(x)

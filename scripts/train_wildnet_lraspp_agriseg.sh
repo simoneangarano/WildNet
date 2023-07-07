@@ -18,7 +18,7 @@ python train.py \
     --scale_max 2.0 \
     --rrotate 0 \
     --max_iter 60000 \
-    --bs_mult 4 \
+    --bs_mult 1 \
     --gblur \
     --color_aug 0.5 \
     --fs_layer 1 1 1 0 0 \
@@ -30,4 +30,5 @@ python train.py \
     --date 2306 \
     --exp lraspp_agriseg_wildnet \
     --ckpt ./logs/ \
-    --tb_path ./logs/
+    --tb_path ./logs/ \
+    --num_workers 24
