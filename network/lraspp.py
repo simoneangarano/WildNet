@@ -128,14 +128,16 @@ class LRASPP(nn.Module):
             aux_out_sw = x_tuple[2]
         
         for i in range(4,17):
-            x_tuple = self.backbone.features[i](x_tuple[0])
+            x_tuple = self.backbone.features[i](x_tuple)
+            if i == 14:
+                x_low = x_tuple[0]
         
         x = x_tuple[0]
         if self.training & apply_fs:
             x_w = x_tuple[1]
             x_sw = x_tuple[2]
             
-        out, out_proj = self.classifier(self.backb(x))
+        out, out_proj = self.classifier(x, x_low)
         main_out = F.interpolate(out, size=x.shape[-2:], mode="bilinear", align_corners=False)
         
         if self.training:
@@ -212,9 +214,7 @@ class LRASPPHead(nn.Module):
         self.low_classifier = nn.Conv2d(low_channels, num_classes, 1)
         self.high_classifier = nn.Conv2d(inter_channels, num_classes, 1)
 
-    def forward(self, input: Dict[str, Tensor]) -> Tensor:
-        low = input["low"]
-        high = input["high"]
+    def forward(self, high, low) -> Tensor:
 
         x = self.cbr(high)
         s = self.scale(high)
