@@ -9,6 +9,7 @@ from torch.nn import functional as F
 from network.utils import IntermediateLayerGetter
 from network.mobilenet_v3 import mobilenet_v3_large, MobileNetV3
 from network.mynn import initialize_weights, Upsample
+from network.cel import get_content_extension_loss
 
 
 __all__ = ["LRASPP", "LRASPP_MobileNet_V3_Large_Weights", "lraspp_mobilenet_v3_large"]
@@ -31,13 +32,12 @@ class LRASPP(nn.Module):
     """
 
     def __init__(
-        self, args, backbone: nn.Module, backb, low_channels: int, high_channels: int, num_classes: int, inter_channels: int = 128,
+        self, args, backbone: nn.Module, low_channels: int, high_channels: int, num_classes: int, inter_channels: int = 128,
         skip_num=48, criterion=None, criterion_aux=None, cont_proj_head=None, 
         wild_cont_dict_size=None, variant='D16', skip='m1') -> None:
         super().__init__()
         
         self.backbone = backbone
-        self.backb = backb
         self.classifier = LRASPPHead(low_channels, high_channels, num_classes, inter_channels)
         
         self.args = args
@@ -68,15 +68,15 @@ class LRASPP(nn.Module):
 
         if self.cont_proj_head > 0:
             self.proj = nn.Sequential(
-                nn.Linear(256, 256, bias=True),
+                nn.Linear(128, 256, bias=True),
                 nn.ReLU(inplace=False),
                 nn.Linear(256, self.cont_proj_head, bias=True))
             initialize_weights(self.proj)
 
         self.dsn = nn.Sequential(
-            nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(24, 512, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(512),
-            nn.ReLU(inplace=True),
+            nn.ReLU(inplace=False),
             nn.Dropout2d(0.1),
             nn.Conv2d(512, num_classes, kernel_size=1, stride=1, padding=0, bias=True)
         )
@@ -127,39 +127,41 @@ class LRASPP(nn.Module):
             aux_out_w = x_tuple[1]
             aux_out_sw = x_tuple[2]
         
-        for i in range(4,17):
+        for i in range(4,16):
             x_tuple = self.backbone.features[i](x_tuple)
-            if i == 14:
+            if i == 6:
                 x_low = x_tuple[0]
+                x_low_w = x_tuple[1]
+                x_low_sw = x_tuple[2]
         
         x = x_tuple[0]
         if self.training & apply_fs:
             x_w = x_tuple[1]
             x_sw = x_tuple[2]
             
-        out, out_proj = self.classifier(x, x_low)
-        main_out = F.interpolate(out, size=x.shape[-2:], mode="bilinear", align_corners=False)
+        out, out_proj = self.classifier(self.backbone.features[-1](x), x_low)
+        main_out = F.interpolate(out, size=x_size[-2:], mode="bilinear", align_corners=False)
         
         if self.training:
             # compute original semantic segmentation loss
-            loss_orig = self.criterion(main_out, gts)
-            aux_out = self.dsn(aux_out)
-            if aux_gts.dim() == 1:
-                aux_gts = gts
-            aux_gts = aux_gts.unsqueeze(1).float()
-            aux_gts = nn.functional.interpolate(aux_gts, size=aux_out.shape[2:], mode='nearest')
-            aux_gts = aux_gts.squeeze(1).long()
-            loss_orig_aux = self.criterion_aux(aux_out, aux_gts)
+            loss_orig = self.criterion(main_out.squeeze(1), gts.squeeze(1))
+            # aux_out = self.dsn(aux_out)
+            # if aux_gts.dim() == 1:
+            #     aux_gts = gts
+            # aux_gts = aux_gts.unsqueeze(1).float()
+            # aux_gts = nn.functional.interpolate(aux_gts, size=aux_out.shape[2:], mode='nearest')
+            # aux_gts = aux_gts.squeeze(1).long()
+            # loss_orig_aux = self.criterion_aux(aux_out, aux_gts)
 
-            return_loss = [loss_orig, loss_orig_aux]
+            return_loss = [loss_orig, 0.]
 
             if apply_fs:
-                out_sw, out_proj_sw = self.classifier(self.backb(x))
-                main_out_sw = F.interpolate(out_sw, size=x.shape[-2:], mode="bilinear", align_corners=False)
+                out_sw, out_proj_sw = self.classifier(self.backbone.features[-1](x_sw), x_low_sw)
+                main_out_sw = F.interpolate(out_sw, size=x_size[-2:], mode="bilinear", align_corners=False)
                 
                 with torch.no_grad():
-                    out_w, out_proj_w = self.classifier(self.backb(x))
-                    main_out_w = F.interpolate(out_w, size=x.shape[-2:], mode="bilinear", align_corners=False)
+                    out_w, out_proj_w = self.classifier(self.backbone.features[-1](x_w), x_low_w)
+                    main_out_w = F.interpolate(out_w, size=x_size[-2:], mode="bilinear", align_corners=False)
                 
                 if self.args.use_cel:
                     # projected features
@@ -178,9 +180,9 @@ class LRASPP(nn.Module):
                     # compute style extension learning loss
                     loss_sel = self.criterion(main_out_sw, gts)
                     aux_out_sw = self.dsn(aux_out_sw)
-                    loss_sel_aux = self.criterion_aux(aux_out_sw, aux_gts)
+                    #loss_sel_aux = self.criterion_aux(aux_out_sw, aux_gts.cuda())
                     return_loss.append(loss_sel)
-                    return_loss.append(loss_sel_aux)
+                    return_loss.append(0.0)
                 
                 if self.args.use_scr:
                     # compute semantic consistency regularization loss
@@ -204,7 +206,7 @@ class LRASPPHead(nn.Module):
         self.cbr = nn.Sequential(
             nn.Conv2d(high_channels, inter_channels, 1, bias=False),
             nn.BatchNorm2d(inter_channels),
-            nn.ReLU(inplace=True),
+            nn.ReLU(inplace=False),
         )
         self.scale = nn.Sequential(
             nn.AdaptiveAvgPool2d(1),
@@ -235,9 +237,9 @@ def _lraspp_mobilenetv3(args, backbone: MobileNetV3, num_classes: int, criterion
     high_pos = stage_indices[-1]  # use C5 which has output_stride = 16
     low_channels = backb[low_pos].out_channels
     high_channels = backb[high_pos].out_channels
-    backb = IntermediateLayerGetter(backb, return_layers={str(low_pos): "low", str(high_pos): "high"})
+    #backb = IntermediateLayerGetter(backb, return_layers={str(low_pos): "low", str(high_pos): "high"})
 
-    return LRASPP(args, backbone, backb, low_channels, high_channels, num_classes, criterion=criterion, criterion_aux=criterion_aux, 
+    return LRASPP(args, backbone, low_channels, high_channels, num_classes, criterion=criterion, criterion_aux=criterion_aux, 
                   cont_proj_head=cont_proj_head, wild_cont_dict_size=wild_cont_dict_size, variant='D16', skip='m1')
 
 
@@ -287,7 +289,7 @@ def lraspp_mobilenet_v3_large(
         num_classes = 1
 
     backbone = mobilenet_v3_large(pretrained=pretrained, dilated=True, fs_layer=args.fs_layer)
-    model = _lraspp_mobilenetv3(args, backbone, num_classes=1000, criterion=criterion, criterion_aux=criterion_aux, 
+    model = _lraspp_mobilenetv3(args, backbone, num_classes=1, criterion=criterion, criterion_aux=criterion_aux, 
                                 cont_proj_head=cont_proj_head, wild_cont_dict_size=wild_cont_dict_size,
                                 variant='D16', skip='m1')
 

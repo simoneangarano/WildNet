@@ -20,6 +20,7 @@ import torch.nn.functional as F
 import numpy as np
 import random
 
+torch.autograd.set_detect_anomaly(True)
 
 # Argument Parser
 parser = argparse.ArgumentParser(description='Semantic Segmentation')
@@ -383,7 +384,7 @@ def train(source_loader, wild_loader, net, optim, curr_epoch, scheduler, max_ite
 
 
             log_total_loss = total_loss.clone().detach_()
-            torch.distributed.all_reduce(log_total_loss, torch.distributed.ReduceOp.SUM)
+            #torch.distributed.all_reduce(log_total_loss, torch.distributed.ReduceOp.SUM)
             log_total_loss = log_total_loss / args.world_size
             train_total_loss.update(log_total_loss.item(), batch_pixel_size)
             

@@ -19,7 +19,7 @@ def get_content_extension_loss(feats_s, feats_sw, feats_w, gts, queue):
 
     feats_s_flat = feats_s_flat.contiguous().view(B, C, -1) # B X C X H X W > B X C X (H X W)
     feats_sw_flat = feats_sw_flat.contiguous().view(B, C, -1) # B X C X H X W > B X C X (H X W)
-    gts_flat = upsample_n(gts.unsqueeze(1).float()).squeeze(1).long().view(B, HW)
+    gts_flat = upsample_n(gts).squeeze(1).long().view(B, HW)
 
     # uniform sampling with a size of 16 x 16 for wild feature map
     H_W_resize_w = 16
@@ -47,7 +47,7 @@ def get_content_extension_loss(feats_s, feats_sw, feats_w, gts, queue):
     logits_mask_sce_ignore = include_unknown(logits_mask_sce_ignore, gts_flat)
 
     # exclude self-pixel
-    logits_mask_sce_ignore *= ~torch.eye(HW,HW).type(torch.cuda.BoolTensor).unsqueeze(0).expand([B, -1, -1]) # self:1, other:0. B X (H X W) X (H X W)
+    logits_mask_sce_ignore = logits_mask_sce_ignore * ~torch.eye(HW,HW).type(torch.cuda.BoolTensor).unsqueeze(0).expand([B, -1, -1]) # self:1, other:0. B X (H X W) X (H X W)
 
     # compute positive mask for cross entropy loss: B X (H X W)
     logits_mask_sce_pos = torch.linspace(start=0, end=HW-1, steps=HW).unsqueeze(0).expand([B, -1]).type(torch.cuda.LongTensor)
@@ -167,14 +167,14 @@ def concat_all_gather(tensor):
 def varsize_tensor_all_gather(tensor: torch.Tensor):
     tensor = tensor.contiguous()
 
-    cuda_device = f'cuda:{torch.distributed.get_rank()}'
+    cuda_device = f'cuda:0'
     size_tens = torch.tensor([tensor.shape[0]], dtype=torch.int64, device=cuda_device)
 
-    size_tens2 = [torch.ones_like(size_tens)
-        for _ in range(torch.distributed.get_world_size())]
+    #size_tens2 = [torch.ones_like(size_tens)
+    #    for _ in range(1)]
     
-    torch.distributed.all_gather(size_tens2, size_tens)
-    size_tens2 = torch.cat(size_tens2, dim=0).cpu()
+    #torch.distributed.all_gather(size_tens2, size_tens)
+    size_tens2 = size_tens.cpu()
     max_size = size_tens2.max()
 
     padded = torch.empty(max_size, *tensor.shape[1:],
@@ -182,11 +182,11 @@ def varsize_tensor_all_gather(tensor: torch.Tensor):
                          device=cuda_device)
     padded[:tensor.shape[0]] = tensor
 
-    ag = [torch.ones_like(padded)
-        for _ in range(torch.distributed.get_world_size())]
+    #ag = [torch.ones_like(padded)
+    #    for _ in range(1)]
 
-    torch.distributed.all_gather(ag,padded)
-    ag = torch.cat(ag, dim=0)
+    #torch.distributed.all_gather(ag,padded)
+    ag = padded
 
     slices = []
     for i, sz in enumerate(size_tens2):

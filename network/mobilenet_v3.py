@@ -245,8 +245,8 @@ class MobileNetV3(nn.Module):
         self.avgpool = nn.AdaptiveAvgPool2d(1)
         self.classifier = nn.Sequential(
             nn.Linear(lastconv_output_channels, last_channel),
-            nn.Hardswish(inplace=True),
-            nn.Dropout(p=dropout, inplace=True),
+            nn.Hardswish(inplace=False),
+            nn.Dropout(p=dropout, inplace=False),
             nn.Linear(last_channel, num_classes),
         )
 

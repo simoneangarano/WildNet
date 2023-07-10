@@ -511,7 +511,9 @@ def setup_loaders(args):
         dataset = agriseg
         train_joint_transform_list, train_joint_transform = get_train_joint_transform_wild(args, dataset)
         train_input_transform, val_input_transform = get_input_transforms(args, dataset)
-        wild_set = dataset.AgriSeg(args, augment=True)
+        target_transform, target_train_transform, target_aux_train_transform = get_target_transforms(args, dataset)
+
+        wild_set = dataset.AgriSeg(args, augment=True, target_aux_transform=None)
         wild_sets.append(wild_set)
         wild_dataset_names.append('agriseg')
 
