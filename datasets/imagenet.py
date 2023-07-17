@@ -95,7 +95,7 @@ def make_dataset(mode, maxSkip=0, cv_split=0):
     else:
         modes = [mode]
     for mode in modes:
-        logging.info('{} imagenet: '.format(mode) + str(cv_splits[cv_split][mode]))
+        #logging.info('{} imagenet: '.format(mode) + str(cv_splits[cv_split][mode]))
         add_items(items, aug_items, cv_splits[cv_split][mode], root, mode, maxSkip)
 
     logging.info('ImageNet-{}: {} images'.format(mode, len(items) + len(aug_items)))

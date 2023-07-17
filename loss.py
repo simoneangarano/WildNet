@@ -35,11 +35,9 @@ def get_loss(args):
                                      upper_bound=args.wt_bound).cuda()
     else:
         print("standard cross entropy")
-        criterion = nn.CrossEntropyLoss(weight=ce_weight, reduction='mean',
-                                       ignore_index=datasets.ignore_label).cuda()
+        criterion = nn.BCELoss(reduction='mean').cuda()
 
-    criterion_val = nn.CrossEntropyLoss(reduction='mean',
-                                       ignore_index=datasets.ignore_label).cuda()
+    criterion_val = nn.BCELoss(reduction='mean').cuda()
     return criterion, criterion_val
 
 def get_loss_by_epoch(args):
@@ -82,8 +80,7 @@ def get_loss_aux(args):
         ce_weight = None
 
     print("standard cross entropy")
-    criterion = nn.CrossEntropyLoss(weight=ce_weight, reduction='mean',
-                                    ignore_index=datasets.ignore_label).cuda()
+    criterion = nn.BCELoss(reduction='mean').cuda()
 
     return criterion
 

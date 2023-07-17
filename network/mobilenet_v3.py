@@ -27,7 +27,7 @@ def _make_divisible(v: float, divisor: int, min_value: Optional[int] = None) -> 
     new_v = max(min_value, int(v + divisor / 2) // divisor * divisor)
     # Make sure that round down does not go down by more than 10%.
     if new_v < 0.9 * v:
-        new_v += divisor
+        new_v = new_v + divisor
     return new_v
 
 
@@ -139,7 +139,7 @@ class InvertedResidual(nn.Module):
         residual = x 
         result = self.block(x)
         if self.use_res_connect:
-            result += residual
+            result = result + residual
         out = result
         
         if len(input) == 3:
@@ -147,12 +147,12 @@ class InvertedResidual(nn.Module):
                 residual_w = x_w
                 out_w = self.block(x_w)
                 if self.use_res_connect:
-                    out_w += residual_w
+                    out_w = out_w + residual_w
 
             residual_sw = x_sw
             out_sw = self.block(x_sw)      
             if self.use_res_connect:
-                out_sw += residual_sw
+                out_sw = out_sw + residual_sw
             
                 
         if self.fs == 1:
@@ -361,13 +361,3 @@ def mobilenet_v3_large(
     model.load_state_dict(weights, strict=False)
 
     return model
-
-
-
-def adapted_imagenet_weights(state_dict):
-    for i in reversed(range(1,17)):
-        state_dict_filt = {k: v for k, v in state_dict.items() if f'features.{i}.' in k}
-        for key in state_dict_filt:
-            _, post = key.split(f'features.{i}.')
-            state_dict[f'features.{i+1}.{post}'] = state_dict.pop(key)
-    return state_dict

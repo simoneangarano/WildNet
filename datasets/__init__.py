@@ -21,8 +21,8 @@ from torch.utils.data import DataLoader, ConcatDataset
 import torch
 
 
-num_classes = 19
-ignore_label = 255
+num_classes = 1
+ignore_label = -1
 
 
 def get_train_joint_transform(args, dataset):
@@ -186,8 +186,8 @@ def create_extra_val_loader(args, dataset, val_input_transform, target_transform
                                         image_in=args.image_in)
         
     if dataset == 'agriseg':
-        val_set = agriseg.AgriSeg_DataLoader(args)
-        
+        val_set = agriseg.AgriSeg(args, augment=False, test=True)
+
     elif dataset == 'bdd100k':
         val_set = bdd100k.BDD100K('val', 0,
                                   transform=val_input_transform,
@@ -483,9 +483,11 @@ def setup_loaders(args):
 
     if 'agriseg' in args.dataset:
         dataset = agriseg
-        train_set = agriseg.AgriSeg(args, augment=True)
-        val_set = agriseg.AgriSeg(args, augment=False)
+        val_set = agriseg.AgriSeg(args, augment=False, test=True)
+        train_joint_transform_list, train_joint_transform = get_train_joint_transform(args, dataset)
         train_input_transform, val_input_transform = get_input_transforms(args, dataset)
+        target_transform, target_train_transform, target_aux_train_transform = get_target_transforms(args, dataset)
+        train_set = agriseg.AgriSeg(args, target_aux_transform=target_aux_train_transform, augment=True)
         train_sets.append(train_set)
         val_sets.append(val_set)
         val_dataset_names.append(args.target)
@@ -548,7 +550,8 @@ def setup_loaders(args):
         train_sampler = None
 
     train_loader = DataLoader(train_set, batch_size=args.train_batch_size,
-                              num_workers=args.num_workers, pin_memory=True, shuffle=(train_sampler is None), drop_last=True, sampler = None)
+                              num_workers=args.num_workers, pin_memory=True, shuffle=(train_sampler is None), 
+                              drop_last=True, sampler = None)
 
     extra_val_loader = {}
     for val_dataset in args.val_dataset:

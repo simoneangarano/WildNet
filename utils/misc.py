@@ -161,9 +161,11 @@ def evaluate_eval(args, net, optimizer, scheduler, val_loss, hist, dump_images, 
     if save_pth:
         # update latest snapshot
         if 'mean_iu' in args.last_record[dataset_name]:
-            last_snapshot = 'last_{}_epoch_{}_mean-iu_{:.5f}.pth'.format(
+            last_snapshot = 'last_{}_epoch_{}_mean-iu_{:.5f}_{}_{}.pth'.format(
                         dataset_name, args.last_record[dataset_name]['epoch'],
-                        args.last_record[dataset_name]['mean_iu'])
+                        args.last_record[dataset_name]['mean_iu'],
+                        args.target,
+                        args.date_str)
             last_snapshot = os.path.join(args.exp_path, last_snapshot)
             # if dataset_name != "cityscapes":
             if dataset_name != "gtav":

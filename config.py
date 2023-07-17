@@ -86,7 +86,7 @@ __C.DATASET.KITTI_AUG_DIR = ''
 #Camvid Dataset Dir Location
 __C.DATASET.CAMVID_DIR = ''
 #AgriSeg Dataset Dir Location
-__C.DATASET.AGRISEG_DIR = '/home/simone/Agri/AgriSeg_Dataset/vineyard/'
+__C.DATASET.AGRISEG_DIR = '/home/simone/Agri/AgriSeg_Dataset/'
 #Number of splits to support
 __C.DATASET.CV_SPLITS = 3
 

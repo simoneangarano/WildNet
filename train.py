@@ -25,11 +25,12 @@ torch.autograd.set_detect_anomaly(True)
 # Argument Parser
 parser = argparse.ArgumentParser(description='Semantic Segmentation')
 parser.add_argument('--lr', type=float, default=0.01)
+parser.add_argument('--val_perc', type=float, default=0.1)
 parser.add_argument('--arch', type=str, default='network.deepv3.DeepR50V3PlusD',
                     help='Network architecture.')
 parser.add_argument('--source', nargs='*', type=str, default=['vineyard', 'tree_2', 'chard', 'lettuce'])
-parser.add_argument('--target', nargs='*', type=str, default=0)
-parser.add_argument('--dataset', nargs='*', type=str, default=['gtav'])
+parser.add_argument('--target', type=str, default='vineyard')
+parser.add_argument('--dataset', nargs='*', type=str, default=['agriseg'])
 parser.add_argument('--image_uniform_sampling', action='store_true', default=False,
                     help='uniformly sample images across the multiple source domains')
 parser.add_argument('--val_dataset', nargs='*', type=str, default=['bdd100k'],
@@ -112,8 +113,11 @@ parser.add_argument('--scale_max', type=float, default=2.0,
                     help='dynamically scale training images up to this size')
 parser.add_argument('--weight_decay', type=float, default=5e-4)
 parser.add_argument('--momentum', type=float, default=0.9)
-parser.add_argument('--num_workers', type=int, default=4)
+parser.add_argument('--num_workers', type=int, default=24)
 parser.add_argument('--snapshot', type=str, default=None)
+parser.add_argument('--exp_path', type=str, default='./results')
+parser.add_argument('--last_record', type=dict, default={})
+parser.add_argument('--best_record', type=dict, default={})
 parser.add_argument('--restore_optimizer', action='store_true', default=False)
 
 parser.add_argument('--city_mode', type=str, default='train',
@@ -132,7 +136,7 @@ parser.add_argument('--syncbn', action='store_true', default=False,
                     help='Use Synchronized BN')
 parser.add_argument('--dump_augmentation_images', action='store_true', default=False,
                     help='Dump Augmentated Images for sanity check')
-parser.add_argument('--test_mode', action='store_true', default=True,
+parser.add_argument('--test_mode', action='store_true', default=False,
                     help='Minimum testing to verify nothing failed, ' +
                     'Runs code for 1 epoch of train and val')
 parser.add_argument('-wb', '--wt_bound', type=float, default=1.0,
@@ -220,9 +224,11 @@ def main():
     """
     # Set up the Arguments, Tensorboard Writer, Dataloader, Loss Fn, Optimizer
     assert_and_infer_cfg(args)
+    writer = prep_experiment(args, parser)
 
     train_source_loader, val_loaders, train_wild_loader, train_obj, extra_val_loaders = datasets.setup_loaders(args)
-
+    print(f'Train: {len(train_source_loader)}, Val: {[len(i) for i in val_loaders]}, Wild: {len(train_wild_loader)}')
+    args.max_iter = len(train_source_loader) * 50
     criterion, criterion_val = loss.get_loss(args)
     criterion_aux = loss.get_loss_aux(args)
     net = network.get_net(args, criterion, criterion_aux, args.cont_proj_head, args.wild_cont_dict_size)
@@ -253,14 +259,15 @@ def main():
         cfg.immutable(True)
 
         i = train(train_source_loader, train_wild_loader, net, optim, epoch, scheduler, args.max_iter)
-        train_source_loader.sampler.set_epoch(epoch + 1)
-        train_wild_loader.sampler.set_epoch(epoch + 1)
+        #train_source_loader.sampler.set_epoch(epoch + 1)
+        #train_wild_loader.sampler.set_epoch(epoch + 1)
 
         if args.local_rank == 0:
             print("Saving pth file...")
-            evaluate_eval(args, net, optim, scheduler, None, None, [], epoch, "None", None, i, save_pth=True)
+            evaluate_eval(args, net, optim, scheduler, None, None, [], 
+                          epoch, "None", None, i, save_pth=True)
 
-        if args.class_uniform_pct:
+        if False:
             if epoch >= args.max_cu_epoch:
                 train_obj.build_epoch(cut=True)
                 train_source_loader.sampler.set_num_samples()
@@ -333,10 +340,10 @@ def train(source_loader, wild_loader, net, optim, curr_epoch, scheduler, max_ite
         for di, ingredients in enumerate(zip(inputs, gts, aux_gts)):
             input, gt, aux_gt = ingredients
 
-            print('Getting wild sample...')
+            #print('Getting wild sample...')
             _, inputs_wild = next(wild_loader_iter)
             input_wild = inputs_wild[0]
-            print('Done')
+            #print('Done')
 
             start_ts = time.time()
 
@@ -349,24 +356,24 @@ def train(source_loader, wild_loader, net, optim, curr_epoch, scheduler, max_ite
             
             outputs_index = 0
             main_loss = outputs[outputs_index]
-            outputs_index += 1
+            outputs_index = outputs_index + 1
             aux_loss = outputs[outputs_index]
-            outputs_index += 1
+            outputs_index = outputs_index + 1
             total_loss = main_loss + (0.4 * aux_loss)
 
             if args.use_fs:
                 if args.use_cel:
                     cel_loss = outputs[outputs_index]
-                    outputs_index += 1
+                    outputs_index = outputs_index + 1
                     total_loss = total_loss + (args.lambda_cel * cel_loss)
                 else:
                     cel_loss = 0
                 
                 if args.use_sel:
                     sel_loss_main = outputs[outputs_index]
-                    outputs_index += 1
+                    outputs_index = outputs_index + 1
                     sel_loss_aux = outputs[outputs_index]
-                    outputs_index += 1
+                    outputs_index = outputs_index + 1
                     total_loss = total_loss + args.lambda_sel * (sel_loss_main + (0.4 * sel_loss_aux))
                 else:
                     sel_loss_main = 0
@@ -374,9 +381,9 @@ def train(source_loader, wild_loader, net, optim, curr_epoch, scheduler, max_ite
 
                 if args.use_scr:
                     scr_loss_main = outputs[outputs_index]
-                    outputs_index += 1
+                    outputs_index = outputs_index + 1
                     scr_loss_aux = outputs[outputs_index]
-                    outputs_index += 1
+                    outputs_index = outputs_index + 1
                     total_loss = total_loss + args.lambda_scr * (scr_loss_main + (0.4 * scr_loss_aux))
                 else:
                     scr_loss_main = 0
@@ -404,6 +411,7 @@ def train(source_loader, wild_loader, net, optim, curr_epoch, scheduler, max_ite
                     logging.info(msg)
                     
                     # Log tensorboard metrics for each iteration of the training phase
+                    #writer.add_scalar('loss/train_loss', (train_total_loss.avg), curr_iter)
                     train_total_loss.reset()
                     time_meter.reset()
 
@@ -438,10 +446,10 @@ def validate(val_loader, dataset, net, criterion, optim, scheduler, curr_epoch, 
 
         inputs, gt_image, img_names, _ = data
 
-        if len(inputs.shape) == 5:
-            B, D, C, H, W = inputs.shape
+        if len(inputs.shape) == 4:
+            B, C, H, W = inputs.shape
             inputs = inputs.view(-1, C, H, W)
-            gt_image = gt_image.view(-1, 1, H, W)
+            gt_image = gt_image.view(-1, H, W)
 
         assert len(inputs.size()) == 4 and len(gt_image.size()) == 3
         assert inputs.size()[2:] == gt_image.size()[1:]
@@ -457,7 +465,7 @@ def validate(val_loader, dataset, net, criterion, optim, scheduler, curr_epoch, 
         assert output.size()[2:] == gt_image.size()[1:]
         assert output.size()[1] == datasets.num_classes
 
-        val_loss.update(criterion(output, gt_cuda).item(), batch_pixel_size)
+        val_loss.update(criterion(output.squeeze(1), gt_cuda).item(), batch_pixel_size)
 
         del gt_cuda
 
@@ -482,7 +490,7 @@ def validate(val_loader, dataset, net, criterion, optim, scheduler, curr_epoch, 
         del output, val_idx, data
 
     iou_acc_tensor = torch.cuda.FloatTensor(iou_acc)
-    torch.distributed.all_reduce(iou_acc_tensor, op=torch.distributed.ReduceOp.SUM)
+    #torch.distributed.all_reduce(iou_acc_tensor, op=torch.distributed.ReduceOp.SUM)
     iou_acc = iou_acc_tensor.cpu().numpy()
 
     if args.local_rank == 0:
