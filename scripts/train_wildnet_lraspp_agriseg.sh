@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-domains='vineyard'
+domains='tree_2 chard lettuce vineyard'
 
 for target in $domains; do # Iterate on domains
-    for i in 1 2 3; do # Multiple runs
+    for i in 1 2 3 4 5; do # Multiple runs
         date
         echo "Training: i=$i, target=$target"
         python train.py \
@@ -24,7 +24,7 @@ for target in $domains; do # Iterate on domains
             --scale_max 2.0 \
             --rrotate 0 \
             --max_iter 15000 \
-            --bs_mult 16 \
+            --bs_mult 8 \
             --gblur \
             --color_aug 0.5 \
             --fs_layer 1 1 1 0 0 \

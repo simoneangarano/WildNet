@@ -20,6 +20,7 @@ from config import cfg
 import random
 
 
+
 # Create unique output dir name based on non-default command line args
 def make_exp_name(args, parser):
     exp_name = '{}-{}'.format(args.dataset[:4], args.arch[:])
@@ -55,18 +56,49 @@ def make_exp_name(args, parser):
                 arg_str = 'T' if dict_args[argname] else 'F'
             else:
                 arg_str = str(dict_args[argname])[:7]
-            if argname is not '':
+            if argname != '':
                 exp_name += '_{}_{}'.format(str(argname), arg_str)
             else:
                 exp_name += '_{}'.format(arg_str)
     # clean special chars out    exp_name = re.sub(r'[^A-Za-z0-9_\-]+', '', exp_name)
     return exp_name
 
+
+def mIoU(y_pred, y_true, num_classes=1, threshold=0.75):
+    
+    y_pred_threshold = (y_pred > threshold).astype(np.int32)    
+    y_true = y_true.astype(np.int32)
+    intersection_tensor = y_true * y_pred_threshold
+    inter = intersection_tensor.sum()
+    
+    #union = a+b-intersection
+    union = (y_true + y_pred_threshold - intersection_tensor).sum()
+    
+    return inter / union
+
+
+# def miou(pred, target, n_classes=2):
+#   ious = []
+
+#   # Ignore IoU for background class ("0")
+#   for cls in range(1, n_classes):  # This goes from 1:n_classes-1 -> class "0" is ignored
+#     pred_inds = pred == cls
+#     target_inds = target == cls
+#     intersection = (pred_inds[target_inds]).long().sum().data.cpu()[0]  # Cast to long to prevent overflows
+#     union = pred_inds.long().sum().data.cpu()[0] + target_inds.long().sum().data.cpu()[0] - intersection
+#     if union == 0:
+#       ious.append(float('nan'))  # If there is no ground truth, do not include in evaluation
+#     else:
+#       ious.append(float(intersection) / float(max(union, 1)))
+#   return np.array(ious)
+
+
+
 def fast_hist(label_pred, label_true, num_classes):
-    mask = (label_true >= 0) & (label_true < num_classes)
+    mask = (label_true >= 0) & (label_true <= num_classes)
     hist = np.bincount(
-        num_classes * label_true[mask].astype(int) +
-        label_pred[mask], minlength=num_classes ** 2).reshape(num_classes, num_classes)
+        (num_classes + 1) * label_true[mask].astype(int) +
+        label_pred[mask], minlength=num_classes ** 2).reshape(num_classes+1, num_classes+1)
     return hist
 
 def per_class_iu(hist):
@@ -141,17 +173,19 @@ def evaluate_eval(args, net, optimizer, scheduler, val_loss, hist, dump_images, 
     large dataset) Only applies to eval/eval.py
     """
     if val_loss is not None and hist is not None:
-        # axis 0: gt, axis 1: prediction
-        acc = np.diag(hist).sum() / hist.sum()
-        acc_cls = np.diag(hist) / hist.sum(axis=1)
-        acc_cls = np.nanmean(acc_cls)
-        iu = np.diag(hist) / (hist.sum(axis=1) + hist.sum(axis=0) - np.diag(hist))
+        pass
+    #     # axis 0: gt, axis 1: prediction
+    #     acc = np.diag(hist).sum() / hist.sum()
+    #     acc_cls = np.diag(hist) / hist.sum(axis=1)
+    #     acc_cls = np.nanmean(acc_cls)
+    #     iu = np.diag(hist) / (hist.sum(axis=1) + hist.sum(axis=0) - np.diag(hist))
 
-        print_evaluate_results(hist, iu, dataset_name=dataset_name, dataset=dataset)
-        freq = hist.sum(axis=1) / hist.sum()
-        mean_iu = np.nanmean(iu)
-        logging.info('mean {}'.format(mean_iu))
-        fwavacc = (freq[freq > 0] * iu[freq > 0]).sum()
+    #     print_evaluate_results(hist, iu, dataset_name=dataset_name, dataset=dataset)
+    #     freq = hist.sum(axis=1) / hist.sum()
+    #     mean_iu = np.nanmean(iu)
+    #     logging.info('mean {}'.format(mean_iu))
+    #     fwavacc = (freq[freq > 0] * iu[freq > 0]).sum()
+        mean_iu = hist
     else:
         mean_iu = 0
 
@@ -222,10 +256,10 @@ def evaluate_eval(args, net, optimizer, scheduler, val_loss, hist, dump_images, 
                 # save new best
                 args.best_record[dataset_name]['val_loss'] = val_loss.avg
                 args.best_record[dataset_name]['epoch'] = epoch
-                args.best_record[dataset_name]['acc'] = acc
-                args.best_record[dataset_name]['acc_cls'] = acc_cls
+                args.best_record[dataset_name]['acc'] = 0
+                args.best_record[dataset_name]['acc_cls'] = 0
                 args.best_record[dataset_name]['mean_iu'] = mean_iu
-                args.best_record[dataset_name]['fwavacc'] = fwavacc
+                args.best_record[dataset_name]['fwavacc'] = 0
 
                 best_snapshot = 'best_{}_epoch_{}_mean-iu_{:.5f}.pth'.format(
                         dataset_name, args.best_record[dataset_name]['epoch'],
@@ -237,16 +271,15 @@ def evaluate_eval(args, net, optimizer, scheduler, val_loss, hist, dump_images, 
 
     if val_loss is not None and hist is not None:
         logging.info('-' * 107)
-        fmt_str = '[epoch %d], [dataset name %s], [val loss %.5f], [acc %.5f], [acc_cls %.5f], ' +\
-                  '[mean_iu %.5f], [fwavacc %.5f]'
-        logging.info(fmt_str % (epoch, dataset_name, val_loss.avg, acc, acc_cls, mean_iu, fwavacc))
+        print(mean_iu)
+        fmt_str = '[epoch 0], [dataset name %s], [val loss %.5f], [acc %.5f], [acc_cls %.5f], [mean_iu %.5f], [fwavacc %.5f]'
+        logging.info(fmt_str % (dataset_name, val_loss.avg, 0, 0, mean_iu, 0))
         if save_pth:
-            fmt_str = 'best record: [dataset name %s], [val loss %.5f], [acc %.5f], [acc_cls %.5f], ' +\
-                      '[mean_iu %.5f], [fwavacc %.5f], [epoch %d], '
+            fmt_str = 'best record: [dataset name %s], [val loss %.5f], [acc %.5f], [acc_cls %.5f], [mean_iu %.5f], [fwavacc %.5f], [epoch 0]'
             logging.info(fmt_str % (dataset_name,
                                     args.best_record[dataset_name]['val_loss'], args.best_record[dataset_name]['acc'],
                                     args.best_record[dataset_name]['acc_cls'], args.best_record[dataset_name]['mean_iu'],
-                                    args.best_record[dataset_name]['fwavacc'], args.best_record[dataset_name]['epoch']))
+                                    args.best_record[dataset_name]['fwavacc']))
             logging.info('-' * 107)
 
 

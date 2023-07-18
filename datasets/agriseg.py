@@ -32,7 +32,7 @@ class AgriSeg(torch.utils.data.Dataset):
         self.transform = transform
         self.target_aux_transform = target_aux_transform
         self.test = test
-        self.perc = 1.0 - self.args.val_perc
+        self.perc = (1.0 - self.args.val_perc) if not test else 1.0
         
         self.get_file_lists_multi()
         self.get_transforms()
@@ -43,7 +43,7 @@ class AgriSeg(torch.utils.data.Dataset):
             return
         
         for d in self.args.source:
-            if d != self.args.target:
+            if d == self.args.target:
                 continue
             self.get_file_lists(self.root_dir.joinpath(d))
 
@@ -53,17 +53,20 @@ class AgriSeg(torch.utils.data.Dataset):
         
         for subdir in subd.iterdir():
             if subdir.is_file() or subdir.name.startswith('.'): continue
+            print(subdir)
             image_file_names = [list(f.glob('**/*'))[0].absolute() 
                                 for f in subdir.joinpath('images').iterdir()]
             mask_file_names = [list(f.glob('**/*'))[0].absolute() 
                                for f in subdir.joinpath('masks').iterdir()]
             
+            print(len(image_file_names))
+
             if self.perc < 1.0:
                 self.images += random.sample(sorted(image_file_names), int(len(image_file_names) * self.perc))
                 self.masks += random.sample(sorted(mask_file_names), int(len(mask_file_names) * self.perc))
-
-            self.images += sorted(image_file_names)
-            self.masks += sorted(mask_file_names)
+            else:
+                self.images += sorted(image_file_names)
+                self.masks += sorted(mask_file_names)
         
     
     def get_transforms(self):

@@ -146,7 +146,7 @@ class DeepV3Plus(nn.Module):
         final_channel = 2048
 
         if trunk == 'resnet-50':
-                resnet = Resnet.resnet50(fs_layer=self.args.fs_layer)
+            resnet = Resnet.resnet50(fs_layer=self.args.fs_layer)
             resnet.layer0 = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu, resnet.maxpool)
         else:
             raise ValueError("Not a valid network arch")

@@ -9,7 +9,7 @@ import os
 import torch
 
 from config import cfg, assert_and_infer_cfg
-from utils.misc import AverageMeter, prep_experiment, evaluate_eval, fast_hist
+from utils.misc import AverageMeter, prep_experiment, evaluate_eval, fast_hist, mIoU 
 import datasets
 import loss
 import network
@@ -227,7 +227,7 @@ def main():
     writer = prep_experiment(args, parser)
 
     train_source_loader, val_loaders, train_wild_loader, train_obj, extra_val_loaders = datasets.setup_loaders(args)
-    print(f'Train: {len(train_source_loader)}, Val: {[len(i) for i in val_loaders]}, Wild: {len(train_wild_loader)}')
+    print(f'Train: {len(train_source_loader)}, Val: {len(val_loaders[args.target])}, Wild: {len(train_wild_loader)}')
     args.max_iter = len(train_source_loader) * 50
     criterion, criterion_val = loss.get_loss(args)
     criterion_aux = loss.get_loss_aux(args)
@@ -265,7 +265,7 @@ def main():
         if args.local_rank == 0:
             print("Saving pth file...")
             evaluate_eval(args, net, optim, scheduler, None, None, [], 
-                          epoch, "None", None, i, save_pth=True)
+                          epoch, "None", None, i, save_pth=False)
 
         if False:
             if epoch >= args.max_cu_epoch:
@@ -274,6 +274,11 @@ def main():
             else:
                 train_obj.build_epoch()
         
+        if len(val_loaders) == 1:
+        # Run validation only one time - To save models
+            for dataset, val_loader in val_loaders.items():
+                validate(val_loader, dataset, net, criterion_val, optim, scheduler, epoch, i)
+
         epoch += 1
     
     # Validation after epochs
@@ -284,11 +289,12 @@ def main():
     else:
         if args.local_rank == 0:
             print("Saving pth file...")
-            evaluate_eval(args, net, optim, scheduler, None, None, [], epoch, "None", None, i, save_pth=True)
+            evaluate_eval(args, net, optim, scheduler, None, None, [], epoch, "None", None, i, save_pth=False)
 
-    for dataset, val_loader in extra_val_loaders.items():
-        print("Extra validating... This won't save pth file")
-        validate(val_loader, dataset, net, criterion_val, optim, scheduler, epoch, i, save_pth=False)
+    if extra_val_loaders is not None:
+        for dataset, val_loader in extra_val_loaders.items():
+            print("Extra validating... This won't save pth file")
+            validate(val_loader, dataset, net, criterion_val, optim, scheduler, epoch, i, save_pth=False)
 
 
 def train(source_loader, wild_loader, net, optim, curr_epoch, scheduler, max_iter):
@@ -404,8 +410,9 @@ def train(source_loader, wild_loader, net, optim, curr_epoch, scheduler, max_ite
 
             if args.local_rank == 0:
                 if i % 50 == 49:
-                    msg = '[epoch {}], [iter {} / {} : {}], [loss {:0.6f}], [lr {:0.6f}], [time {:0.4f}]'.format(
-                        curr_epoch, i + 1, len(source_loader), curr_iter, train_total_loss.avg,
+                    msg = '[epoch {}], [iter {} / {} : {}], [loss: main {:0.3f} aux {:0.3f} cel {:0.3f} sel {:0.3f} sel_aux {:0.3f} scr {:0.3f} scr_aux {:0.3f}], [lr {:0.6f}], [time {:0.4f}]'.format(
+                        curr_epoch, i + 1, len(source_loader), curr_iter, main_loss.avg, aux_loss.avg, cel_loss.avg, 
+                        sel_loss_main.avg, sel_loss_aux.avg, scr_loss_main.avg, scr_loss_aux.avg,
                         optim.param_groups[-1]['lr'], time_meter.avg / args.train_batch_size)
 
                     logging.info(msg)
@@ -472,10 +479,10 @@ def validate(val_loader, dataset, net, criterion, optim, scheduler, curr_epoch, 
         # Collect data from different GPU to a single GPU since
         # encoding.parallel.criterionparallel function calculates distributed loss
         # functions
-        predictions = output.data.max(1)[1].cpu()
+        predictions = output.data.cpu()
 
         # Logging
-        if val_idx % 20 == 0:
+        if val_idx % 1000 == 0:
             if args.local_rank == 0:
                 logging.info("validating: %d / %d", val_idx + 1, len(val_loader))
         if val_idx > 10 and args.test_mode:
@@ -485,13 +492,17 @@ def validate(val_loader, dataset, net, criterion, optim, scheduler, curr_epoch, 
         if val_idx < 10:
             dump_images.append([gt_image, predictions, img_names])
 
-        iou_acc += fast_hist(predictions.numpy().flatten(), gt_image.numpy().flatten(),
-                             datasets.num_classes)
-        del output, val_idx, data
+        m = mIoU(predictions.numpy().flatten(), gt_image.numpy().flatten(), datasets.num_classes)
+        iou_acc += m
 
-    iou_acc_tensor = torch.cuda.FloatTensor(iou_acc)
+        # iou_acc += fast_hist(predictions.numpy().flatten(), gt_image.numpy().flatten(),
+        #                      datasets.num_classes)
+        del output, data
+
+    iou_acc = iou_acc / (val_idx+1)
+    #iou_acc_tensor = torch.cuda.FloatTensor(iou_acc)
     #torch.distributed.all_reduce(iou_acc_tensor, op=torch.distributed.ReduceOp.SUM)
-    iou_acc = iou_acc_tensor.cpu().numpy()
+    #iou_acc = iou_acc_tensor.cpu().numpy()
 
     if args.local_rank == 0:
         evaluate_eval(args, net, optim, scheduler, val_loss, iou_acc, dump_images,

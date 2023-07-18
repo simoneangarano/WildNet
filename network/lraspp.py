@@ -151,6 +151,7 @@ class LRASPP(nn.Module):
         out, out_proj = self.classifier(x_out, x_low)
         main_out = F.interpolate(out, size=x_size[-2:], mode="bilinear", align_corners=False)
         main_out = F.sigmoid(main_out)
+        
         if self.training:
             # compute original semantic segmentation loss
             loss_orig = self.criterion(main_out.squeeze(1), gts.squeeze(1))

@@ -2,4 +2,13 @@
 assets/
 *.ipynb_checkpoints/*
 *__pycache__/*
-*.pyc*
+*.pyc
+*.log
+*.txt
+*.csv
+*.json
+*.yaml
+*.yml
+*.pkl
+*.pickle
+*__init__*

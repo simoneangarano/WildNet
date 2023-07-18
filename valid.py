@@ -9,7 +9,7 @@ import os
 import torch
 
 from config import cfg, assert_and_infer_cfg
-from utils.misc import AverageMeter, prep_experiment, evaluate_eval, fast_hist
+from utils.misc import AverageMeter, prep_experiment, evaluate_eval, fast_hist, mIoU 
 import datasets
 import loss
 import network
@@ -109,6 +109,12 @@ parser.add_argument('--scale_max', type=float, default=2.0,
                     help='dynamically scale training images up to this size')
 parser.add_argument('--weight_decay', type=float, default=5e-4)
 parser.add_argument('--momentum', type=float, default=0.9)
+parser.add_argument('--val_perc', type=float, default=1.0)
+parser.add_argument('--num_workers', type=int, default=24)
+parser.add_argument('--iou_threshold', type=float, default=0.9)
+
+parser.add_argument('--target', type=str, default='vineyard')
+parser.add_argument('--source', nargs='*', type=str, default=['vineyard', 'tree_2', 'chard', 'lettuce'])
 parser.add_argument('--snapshot', type=str, default=None)
 parser.add_argument('--restore_optimizer', action='store_true', default=False)
 
@@ -192,10 +198,10 @@ print('My Rank:', args.local_rank)
 # Initialize distributed communication
 args.dist_url = args.dist_url + str(8000 + (int(time.time()%1000))//10)
 
-torch.distributed.init_process_group(backend='nccl',
-                                    init_method='env://',
-                                    world_size=args.world_size,
-                                    rank=args.local_rank)
+# torch.distributed.init_process_group(backend='nccl',
+#                                     init_method='env://',
+#                                     world_size=args.world_size,
+#                                     rank=args.local_rank)
 # torch.distributed.init_process_group(backend='nccl',
 #                                     init_method=args.dist_url,
 #                                     world_size=args.world_size,
@@ -211,6 +217,7 @@ def main():
     writer = None
 
     _, val_loaders, _, _, extra_val_loaders = datasets.setup_loaders(args)
+    print(f'Val: {[len(i) for i in val_loaders]}')
 
     criterion, criterion_val = loss.get_loss(args)
     criterion_aux = loss.get_loss_aux(args)
@@ -218,24 +225,33 @@ def main():
 
     optim, scheduler = optimizer.get_optimizer(args, net)
 
-    net = torch.nn.SyncBatchNorm.convert_sync_batchnorm(net)
-    net = network.warp_network_in_dataparallel(net, args.local_rank)
+    #net = torch.nn.SyncBatchNorm.convert_sync_batchnorm(net)
+    #net = network.warp_network_in_dataparallel(net, args.local_rank)
     epoch = 0
     i = 0
 
     if args.snapshot:
-        epoch, mean_iu = optimizer.load_weights(net, optim, scheduler,
-                            args.snapshot, args.restore_optimizer)
+        for file in os.listdir('./logs/2306/lraspp_agriseg_wildnet/'):
+            if file.startswith(f'{args.target}_{args.snapshot}'):
+                weights = file 
+                break
+        for file in os.listdir(f'./logs/2306/lraspp_agriseg_wildnet/{weights}/'):
+            if file.startswith(f'best_{args.target}_epoch_50'):
+                weights = f'./logs/2306/lraspp_agriseg_wildnet/{weights}/{file}'
 
+        print("Loading weights from ", weights)
+        _ = optimizer.load_weights(net, optim, scheduler, weights, args.restore_optimizer)
+    
     print("#### iteration", i)
     torch.cuda.empty_cache()
 
     for dataset, val_loader in val_loaders.items():
         validate(val_loader, dataset, net, criterion_val, optim, scheduler, epoch, writer, i, save_pth=False)
 
-    for dataset, val_loader in extra_val_loaders.items():
-        print("Extra validating... This won't save pth file")
-        validate(val_loader, dataset, net, criterion_val, optim, scheduler, epoch, writer, i, save_pth=False)
+    if extra_val_loaders:
+        for dataset, val_loader in extra_val_loaders.items():
+            print("Extra validating... This won't save pth file")
+            validate(val_loader, dataset, net, criterion_val, optim, scheduler, epoch, writer, i, save_pth=False)
 
 def validate(val_loader, dataset, net, criterion, optim, scheduler, curr_epoch, writer, curr_iter, save_pth=True):
     """
@@ -260,10 +276,10 @@ def validate(val_loader, dataset, net, criterion, optim, scheduler, curr_epoch, 
 
         inputs, gt_image, img_names, _ = data
 
-        if len(inputs.shape) == 5:
-            B, D, C, H, W = inputs.shape
+        if len(inputs.shape) == 4:
+            B, C, H, W = inputs.shape
             inputs = inputs.view(-1, C, H, W)
-            gt_image = gt_image.view(-1, 1, H, W)
+            gt_image = gt_image.view(-1, H, W)
 
         assert len(inputs.size()) == 4 and len(gt_image.size()) == 3
         assert inputs.size()[2:] == gt_image.size()[1:]
@@ -279,17 +295,17 @@ def validate(val_loader, dataset, net, criterion, optim, scheduler, curr_epoch, 
         assert output.size()[2:] == gt_image.size()[1:]
         assert output.size()[1] == datasets.num_classes
 
-        val_loss.update(criterion(output, gt_cuda).item(), batch_pixel_size)
+        val_loss.update(criterion(output.squeeze(1), gt_cuda).item(), batch_pixel_size)
 
         del gt_cuda
 
         # Collect data from different GPU to a single GPU since
         # encoding.parallel.criterionparallel function calculates distributed loss
         # functions
-        predictions = output.data.max(1)[1].cpu()
+        predictions = output.data.cpu()
 
         # Logging
-        if val_idx % 20 == 0:
+        if val_idx % 5000 == 0:
             if args.local_rank == 0:
                 logging.info("validating: %d / %d", val_idx + 1, len(val_loader))
         if val_idx > 10 and args.test_mode:
@@ -298,18 +314,18 @@ def validate(val_loader, dataset, net, criterion, optim, scheduler, curr_epoch, 
         # Image Dumps
         if val_idx < 10:
             dump_images.append([gt_image, predictions, img_names])
+        m = mIoU(predictions.numpy().flatten(), gt_image.numpy().flatten(), datasets.num_classes, args.iou_threshold)
+        iou_acc += m
 
-        iou_acc += fast_hist(predictions.numpy().flatten(), gt_image.numpy().flatten(),
-                             datasets.num_classes)
-        del output, val_idx, data
+        # iou_acc += fast_hist(predictions.numpy().flatten(), gt_image.numpy().flatten(), datasets.num_classes)
+        del output, data
 
-    iou_acc_tensor = torch.cuda.FloatTensor(iou_acc)
-    torch.distributed.all_reduce(iou_acc_tensor, op=torch.distributed.ReduceOp.SUM)
-    iou_acc = iou_acc_tensor.cpu().numpy()
+    # torch.distributed.all_reduce(iou_acc_tensor, op=torch.distributed.ReduceOp.SUM)
+    iou_acc = iou_acc / (val_idx+1)
 
     if args.local_rank == 0:
         evaluate_eval(args, net, optim, scheduler, val_loss, iou_acc, dump_images,
-                    writer, curr_epoch, dataset, None, curr_iter, save_pth=save_pth)
+                    writer, 0, dataset, None, curr_iter, save_pth=save_pth)
 
     return val_loss.avg
 

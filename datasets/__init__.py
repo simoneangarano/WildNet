@@ -540,8 +540,8 @@ def setup_loaders(args):
         else:
             val_sampler = None
         val_loader = DataLoader(val_set, batch_size=args.val_batch_size,
-                                num_workers=args.num_workers , pin_memory=True, shuffle=False, drop_last=False,
-                                sampler = None)
+                                num_workers=args.num_workers, pin_memory=True, shuffle=False, drop_last=False,
+                                sampler=None)
         val_loaders[val_dataset_names[i]] = val_loader
 
     if args.syncbn:
@@ -554,7 +554,7 @@ def setup_loaders(args):
                               drop_last=True, sampler = None)
 
     extra_val_loader = {}
-    for val_dataset in args.val_dataset:
+    for val_dataset in []:
         extra_val_loader[val_dataset] = create_extra_val_loader(args, val_dataset, val_input_transform, target_transform, val_sampler)
 
     wild_loader = None
@@ -566,5 +566,5 @@ def setup_loaders(args):
         wild_loader = DataLoader(wild_set, batch_size=args.train_batch_size,
                                 num_workers=args.num_workers, pin_memory=True, shuffle=(wild_sampler is None), drop_last=True, sampler = wild_sampler)
 
-    return train_loader, val_loaders, wild_loader, train_set, extra_val_loader
+    return train_loader, val_loaders, wild_loader, train_set, None
 
