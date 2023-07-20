@@ -3,6 +3,7 @@ from pathlib import Path
 
 import numpy as np
 import random
+
 import torch
 import torchvision.transforms as T
 import PIL.Image as Image
@@ -10,6 +11,7 @@ import PIL.Image as Image
 from config import cfg
 from datasets import uniform
 
+random.seed(cfg.RANDOM_SEED)
 root = cfg.DATASET.AGRISEG_DIR
 num_classes = 1
 ignore_label = None
@@ -62,7 +64,9 @@ class AgriSeg(torch.utils.data.Dataset):
             print(len(image_file_names))
 
             if self.perc < 1.0:
+                random.seed(cfg.RANDOM_SEED)
                 self.images += random.sample(sorted(image_file_names), int(len(image_file_names) * self.perc))
+                random.seed(cfg.RANDOM_SEED)
                 self.masks += random.sample(sorted(mask_file_names), int(len(mask_file_names) * self.perc))
             else:
                 self.images += sorted(image_file_names)

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-echo "Running inference on" ${1}
+echo "Running inference"
 domains='tree_2'
 
 for target in $domains; do # Iterate on domains
@@ -41,6 +41,6 @@ for target in $domains; do # Iterate on domains
                 --target $target \
                 --num_workers 24 \
                 --val_perc 1.0 \
-                --iou_threshold 0.75
+                --iou_threshold 0.7
     done
 done

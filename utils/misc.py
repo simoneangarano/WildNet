@@ -64,7 +64,7 @@ def make_exp_name(args, parser):
     return exp_name
 
 
-def mIoU(y_pred, y_true, num_classes=1, threshold=0.75):
+def mIoU(y_pred, y_true, num_classes=1, threshold=0.9):
     
     y_pred_threshold = (y_pred > threshold).astype(np.int32)    
     y_true = y_true.astype(np.int32)
@@ -202,11 +202,7 @@ def evaluate_eval(args, net, optimizer, scheduler, val_loss, hist, dump_images, 
                         args.date_str)
             last_snapshot = os.path.join(args.exp_path, last_snapshot)
             # if dataset_name != "cityscapes":
-            if dataset_name != "gtav":
-                try:
-                    os.remove(last_snapshot)
-                except OSError:
-                    pass
+
 
         last_snapshot = 'last_{}_epoch_{}_mean-iu_{:.5f}.pth'.format(dataset_name, epoch, mean_iu)
         last_snapshot = os.path.join(args.exp_path, last_snapshot)

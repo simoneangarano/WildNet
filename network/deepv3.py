@@ -195,7 +195,8 @@ class DeepV3Plus(nn.Module):
             Norm2d(512),
             nn.ReLU(inplace=True),
             nn.Dropout2d(0.1),
-            nn.Conv2d(512, num_classes, kernel_size=1, stride=1, padding=0, bias=True)
+            nn.Conv2d(512, num_classes, kernel_size=1, stride=1, padding=0, bias=True),
+            nn.Sigmoid()
         )
         initialize_weights(self.dsn)
 
@@ -279,6 +280,7 @@ class DeepV3Plus(nn.Module):
         dec1 = self.final1(dec0)
         dec2 = self.final2(dec1)
         main_out = Upsample(dec2, x_size[2:])
+        main_out = torch.sigmoid(main_out)
         
         if self.training:
             # compute original semantic segmentation loss
@@ -286,9 +288,8 @@ class DeepV3Plus(nn.Module):
             aux_out = self.dsn(aux_out)
             if aux_gts.dim() == 1:
                 aux_gts = gts
-            aux_gts = aux_gts.unsqueeze(1).float()
+            aux_gts = aux_gts.cuda().float()
             aux_gts = nn.functional.interpolate(aux_gts, size=aux_out.shape[2:], mode='nearest')
-            aux_gts = aux_gts.squeeze(1).long()
             loss_orig_aux = self.criterion_aux(aux_out, aux_gts)
 
             return_loss = [loss_orig, loss_orig_aux]
@@ -303,6 +304,7 @@ class DeepV3Plus(nn.Module):
                 dec1_sw = self.final1(dec0_sw)
                 dec2_sw = self.final2(dec1_sw)
                 main_out_sw = Upsample(dec2_sw, x_size[2:])
+                main_out_sw = torch.sigmoid(main_out_sw)
                 
                 with torch.no_grad():
                     x_w = self.aspp(x_w)
@@ -314,6 +316,7 @@ class DeepV3Plus(nn.Module):
                     dec1_w = self.final1(dec0_w)
                     dec2_w = self.final2(dec1_w)
                     main_out_w = Upsample(dec2_w, x_size[2:])
+                    main_out_w = torch.sigmoid(main_out_w)
                 
                 if self.args.use_cel:
                     # projected features

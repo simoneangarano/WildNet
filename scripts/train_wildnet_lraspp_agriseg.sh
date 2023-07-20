@@ -24,7 +24,7 @@ for target in $domains; do # Iterate on domains
             --scale_max 2.0 \
             --rrotate 0 \
             --max_iter 15000 \
-            --bs_mult 8 \
+            --bs_mult 16 \
             --gblur \
             --color_aug 0.5 \
             --fs_layer 1 1 1 0 0 \

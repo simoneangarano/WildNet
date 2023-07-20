@@ -410,9 +410,9 @@ def train(source_loader, wild_loader, net, optim, curr_epoch, scheduler, max_ite
 
             if args.local_rank == 0:
                 if i % 50 == 49:
-                    msg = '[epoch {}], [iter {} / {} : {}], [loss: main {:0.3f} aux {:0.3f} cel {:0.3f} sel {:0.3f} sel_aux {:0.3f} scr {:0.3f} scr_aux {:0.3f}], [lr {:0.6f}], [time {:0.4f}]'.format(
-                        curr_epoch, i + 1, len(source_loader), curr_iter, main_loss.avg, aux_loss.avg, cel_loss.avg, 
-                        sel_loss_main.avg, sel_loss_aux.avg, scr_loss_main.avg, scr_loss_aux.avg,
+                    msg = '[epoch {}], [iter {} / {} : {}], \n[loss: tot {:0.3f} main {:0.3f} aux {:0.3f} cel {:0.3f} sel {:0.3f} sel_aux {:0.3f} \nscr {:0.3f} scr_aux {:0.3f}], [lr {:0.6f}], [time {:0.4f}]'.format(
+                        curr_epoch, i + 1, len(source_loader), curr_iter, train_total_loss.avg, main_loss, aux_loss, cel_loss, 
+                        sel_loss_main, sel_loss_aux, scr_loss_main, scr_loss_aux,
                         optim.param_groups[-1]['lr'], time_meter.avg / args.train_batch_size)
 
                     logging.info(msg)
