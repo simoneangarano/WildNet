@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-domains='tree_2 chard lettuce vineyard'
+domains='vineyard_real'
 
 for target in $domains; do # Iterate on domains
     for i in 1 2 3 4 5; do # Multiple runs

@@ -56,10 +56,13 @@ class AgriSeg(torch.utils.data.Dataset):
         for subdir in subd.iterdir():
             if subdir.is_file() or subdir.name.startswith('.'): continue
             print(subdir)
-            image_file_names = [list(f.glob('**/*'))[0].absolute() 
-                                for f in subdir.joinpath('images').iterdir()]
-            mask_file_names = [list(f.glob('**/*'))[0].absolute() 
-                               for f in subdir.joinpath('masks').iterdir()]
+            image_file_names = [list(f.glob('**/*')) for f in subdir.joinpath('images').iterdir() 
+                                if not f.name.startswith('.')]
+            mask_file_names = [list(f.glob('**/*')) for f in subdir.joinpath('masks').iterdir()
+                                if not f.name.startswith('.')]
+            
+            # image_file_names = [f[0].absolute() for f in image_file_names]
+            # mask_file_names = [f[0].absolute() for f in mask_file_names]
             
             print(len(image_file_names))
 
@@ -135,8 +138,14 @@ class AgriSeg(torch.utils.data.Dataset):
             self.imgs_uniform = self.imgs
             
     def __getitem__(self, idx):
-        image = Image.open(self.images[idx]).convert('RGB')
-        mask = Image.open(self.masks[idx]).convert('L')
+        img = self.images[idx]
+        msk = self.masks[idx]
+        if isinstance(img, list):
+            #print(img, msk)
+            img = img[0]
+            msk = msk[0]
+        image = Image.open(img).convert('RGB')
+        mask = Image.open(msk).convert('L')
         
         self.seed = np.random.randint(2147483647) # make a seed with numpy generator 
 

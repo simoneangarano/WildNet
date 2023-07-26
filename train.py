@@ -25,7 +25,7 @@ torch.autograd.set_detect_anomaly(True)
 # Argument Parser
 parser = argparse.ArgumentParser(description='Semantic Segmentation')
 parser.add_argument('--lr', type=float, default=0.01)
-parser.add_argument('--val_perc', type=float, default=0.1)
+parser.add_argument('--val_perc', type=float, default=0.0)
 parser.add_argument('--arch', type=str, default='network.deepv3.DeepR50V3PlusD',
                     help='Network architecture.')
 parser.add_argument('--source', nargs='*', type=str, default=['vineyard', 'tree_2', 'chard', 'lettuce'])

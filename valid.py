@@ -232,11 +232,11 @@ def main():
 
     if args.snapshot:
         for file in os.listdir('./logs/2306/lraspp_agriseg_wildnet/'):
-            if file.startswith(f'{args.target}_{args.snapshot}'):
+            if file.startswith(f'test_{args.snapshot}'):
                 weights = file 
                 break
         for file in os.listdir(f'./logs/2306/lraspp_agriseg_wildnet/{weights}/'):
-            if file.startswith(f'last_{args.target}_epoch_50'):
+            if file.startswith(f'best'):
                 weights = f'./logs/2306/lraspp_agriseg_wildnet/{weights}/{file}'
 
         print("Loading weights from ", weights)
