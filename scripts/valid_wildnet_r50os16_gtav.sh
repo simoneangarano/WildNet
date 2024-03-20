@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 echo "Running inference"
-domains='pear zucchini vineyard_real misc'
+domains='vineyard_real'
 
 for target in $domains; do # Iterate on domains
-    for i in 4 5; do # Multiple runs
+    for i in 1; do # Multiple runs
         date
         echo "Training: i=$i, target=$target"
         python valid.py \
@@ -14,7 +14,7 @@ for target in $domains; do # Iterate on domains
                 --city_mode 'train' \
                 --sgd \
                 --lr_schedule poly \
-                --lr 0.0025 \
+                --lr 0.00005 \
                 --poly_exp 0.9 \
                 --max_cu_epoch 10000 \
                 --class_uniform_pct 0.5 \
@@ -37,10 +37,9 @@ for target in $domains; do # Iterate on domains
                 --exp lraspp_agriseg_wildnet \
                 --ckpt ./logs/ \
                 --tb_path ./logs/ \
-                --snapshot $i \
                 --target $target \
                 --num_workers 24 \
                 --val_perc 1.0 \
-                --iou_threshold 0.9
+                --iou_threshold 0.5
     done
 done

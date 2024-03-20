@@ -64,7 +64,7 @@ def make_exp_name(args, parser):
     return exp_name
 
 
-def mIoU(y_pred, y_true, num_classes=1, threshold=0.9):
+def mIoU(y_pred, y_true, num_classes=1, threshold=0.5):
     
     y_pred_threshold = (y_pred > threshold).astype(np.int32)    
     y_true = y_true.astype(np.int32)

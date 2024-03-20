@@ -150,7 +150,7 @@ class LRASPP(nn.Module):
         x_out = self.backbone.features[-1](x)
         out, out_proj = self.classifier(x_out, x_low)
         main_out = F.interpolate(out, size=x_size[-2:], mode="bilinear", align_corners=False)
-        main_out = F.sigmoid(main_out)
+        main_out = torch.sigmoid(main_out)
         
         if self.training:
             # compute original semantic segmentation loss
@@ -168,12 +168,12 @@ class LRASPP(nn.Module):
             if apply_fs:
                 out_sw, out_proj_sw = self.classifier(self.backbone.features[-1](x_sw), x_low_sw)
                 main_out_sw = F.interpolate(out_sw, size=x_size[-2:], mode="bilinear", align_corners=False)
-                main_out_sw = F.sigmoid(main_out_sw)
+                main_out_sw = torch.sigmoid(main_out_sw)
 
                 with torch.no_grad():
                     out_w, out_proj_w = self.classifier(self.backbone.features[-1](x_w), x_low_w)
                     main_out_w = F.interpolate(out_w, size=x_size[-2:], mode="bilinear", align_corners=False)
-                    main_out_w = F.sigmoid(main_out_w)
+                    main_out_w = torch.sigmoid(main_out_w)
                     
                 if self.args.use_cel:
                     # projected features

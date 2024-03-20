@@ -111,7 +111,7 @@ parser.add_argument('--weight_decay', type=float, default=5e-4)
 parser.add_argument('--momentum', type=float, default=0.9)
 parser.add_argument('--val_perc', type=float, default=1.0)
 parser.add_argument('--num_workers', type=int, default=24)
-parser.add_argument('--iou_threshold', type=float, default=0.7)
+parser.add_argument('--iou_threshold', type=float, default=0.5)
 
 parser.add_argument('--target', type=str, default='vineyard')
 parser.add_argument('--source', nargs='*', type=str, default=['vineyard', 'tree_2', 'chard', 'lettuce'])
